@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jen konverter</title>
+<meta name="description" content="Jen u evro, dolar i dinar po fiksnom kursu.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#CF3A1F" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121517" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Jen">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one centered column like a bank's rate board: the amount on top, three result lines, the fixed-rate panel below. */
+  :root {
+    --bg: #F1F3F2;
+    --surface: #FFFFFF;
+    --surface-2: #E9ECEB;
+    --fg: #171B1F;
+    --muted: #5E6873;
+    --line: #D3D8D6;
+    --accent: #CF3A1F;
+    --accent-ink: #FFFFFF;
+    --focus: #1F5FBF;
+    --font-ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-num: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121517; --surface: #1A1E22; --surface-2: #22272C; --fg: #E8EBEB; --muted: #9AA4AE;
+      --line: #2C3339; --accent: #F0603F; --accent-ink: #1A0B07; --focus: #6FA2FF;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121517; --surface: #1A1E22; --surface-2: #22272C; --fg: #E8EBEB; --muted: #9AA4AE;
+    --line: #2C3339; --accent: #F0603F; --accent-ink: #1A0B07; --focus: #6FA2FF;
+    color-scheme: dark;
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap {
+    max-width: 540px; margin: 0 auto; display: grid; gap: 20px;
+    padding-block: 28px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap > * { min-width: 0; }
+  .top { display: grid; gap: 4px; }
+  .eyebrow { margin: 0; font: 500 12px/1.4 var(--font-num); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0; font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  h2 { margin: 0; font-size: 0.95rem; font-weight: 600; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; }
+  .lbl { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+  .field { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); padding: 6px 14px; }
+  .field:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
+  .field .yen { font: 500 1.6rem/1 var(--font-num); color: var(--accent); }
+  .field input { flex: 1; width: 0; min-width: 0; border: 0; background: transparent; color: inherit; font: 600 clamp(1.5rem, 7vw, 2.1rem)/1.3 var(--font-ui); font-variant-numeric: tabular-nums; outline: none; padding: 4px 0; }
+  .field .unit { font: 500 0.85rem var(--font-num); color: var(--muted); letter-spacing: 0.06em; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 6px 12px; font: 500 0.85rem var(--font-num); cursor: pointer; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .board { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+  .row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; padding: 14px 18px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; }
+  .cur { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .code { font: 600 0.9rem var(--font-num); color: var(--accent); letter-spacing: 0.04em; }
+  .name { font-size: 0.85rem; color: var(--muted); }
+  .val { margin-left: auto; font-size: clamp(1.25rem, 5.5vw, 1.9rem); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .val .sym { font-size: 0.8em; color: var(--muted); margin-left: 6px; font-weight: 500; }
+  .rates-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .when { font: 500 0.72rem var(--font-num); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .rate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .rate { display: grid; gap: 4px; min-width: 0; }
+  .rate span { font: 500 0.72rem var(--font-num); letter-spacing: 0.06em; color: var(--muted); }
+  .rate input { width: 100%; box-sizing: border-box; min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: inherit; padding: 8px; font: 500 0.95rem var(--font-num); font-variant-numeric: tabular-nums; }
+  .rate input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
+  .derived { margin: 0; font-size: 0.9rem; color: var(--muted); }
+  .derived strong { color: var(--fg); font-family: var(--font-num); font-weight: 500; }
+  .status { margin: 0; font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
+  .btn { border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 8px; padding: 9px 14px; font: 500 0.9rem var(--font-ui); cursor: pointer; justify-self: start; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .note { margin: 0; font-size: 0.8rem; color: var(--muted); max-width: 60ch; }
+  :is(button, input):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) { .btn, .chip { transition: border-color 0.15s, color 0.15s; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <p class="eyebrow">JPY → EUR · USD · RSD</p>
+    <h1>Jen u evro, dolar i dinar</h1>
+  </header>
+
+  <section class="panel">
+    <label class="lbl" for="amount">Iznos u jenima</label>
+    <div class="field">
+      <span class="yen" aria-hidden="true">¥</span>
+      <input id="amount" type="text" inputmode="decimal" autocomplete="off" value="10.000" aria-describedby="status" autofocus>
+      <span class="unit">JPY</span>
+    </div>
+    <div class="chips" role="group" aria-label="Brzi iznosi">
+      <button type="button" class="chip" data-amount="1000">1.000</button>
+      <button type="button" class="chip" data-amount="10000">10.000</button>
+      <button type="button" class="chip" data-amount="100000">100.000</button>
+      <button type="button" class="chip" data-amount="1000000">1.000.000</button>
+    </div>
+  </section>
+
+  <section class="board" aria-live="polite">
+    <div class="row">
+      <div class="cur"><span class="code">EUR</span><span class="name">evro</span></div>
+      <div class="val"><span id="out-eur">—</span><span class="sym">€</span></div>
+    </div>
+    <div class="row">
+      <div class="cur"><span class="code">USD</span><span class="name">američki dolar</span></div>
+      <div class="val"><span id="out-usd">—</span><span class="sym">$</span></div>
+    </div>
+    <div class="row">
+      <div class="cur"><span class="code">RSD</span><span class="name">dinar</span></div>
+      <div class="val"><span id="out-rsd">—</span><span class="sym">RSD</span></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="rates-head">
+      <h2>Fiksni kursevi</h2>
+      <span id="when" class="when">15. 10. 2026.</span>
+    </div>
+    <div class="rate-grid">
+      <label class="rate"><span>EUR/JPY</span><input id="r-eurjpy" type="text" inputmode="decimal" autocomplete="off"></label>
+      <label class="rate"><span>USD/JPY</span><input id="r-usdjpy" type="text" inputmode="decimal" autocomplete="off"></label>
+      <label class="rate"><span>EUR/RSD</span><input id="r-eurrsd" type="text" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <p class="derived">100 JPY = <strong id="out-100">—</strong> RSD (NBS konvencija)</p>
+    <p id="status" class="status">Kursevi od 15. 10. 2026. Izmeni polje po potrebi.</p>
+    <button id="reset" type="button" class="btn" hidden>Vrati podrazumevane</button>
+  </section>
+
+  <p class="note">Srednji kursevi. Banke i menjačnice primenjuju svoje kurseve, pa je stvarni iznos pri zameni niži.</p>
+</main>
+
+<script>
+/* CORE-START */
+const LOCALE = 'sr-Latn-RS';
+// The fixed rates the page converts with. EUR/JPY and USD/JPY: market mid on 15 Oct 2026.
+// EUR/RSD: NBS middle rate on 15 Oct 2026. Change the numbers and the date together.
+const FIXED = { rates: { eurJpy: 176.98, usdJpy: 157.87, eurRsd: 117.3931 }, asOf: '2026-10-15' };
+
+function parseAmount(raw) {
+  const s = String(raw).replace(/[\s\u00a0\u202f¥￥円]/g, '').replace(/jpy/gi, '').trim();
+  if (!s || !/^[0-9.,]+$/.test(s)) return null;
+  const lastDot = s.lastIndexOf('.');
+  const lastComma = s.lastIndexOf(',');
+  let decimal = '';
+  if (lastDot >= 0 && lastComma >= 0) {
+    decimal = lastDot > lastComma ? '.' : ',';
+  } else if (lastDot >= 0 || lastComma >= 0) {
+    const sep = lastDot >= 0 ? '.' : ',';
+    const count = s.split(sep).length - 1;
+    const digitsAfter = s.length - 1 - Math.max(lastDot, lastComma);
+    decimal = count === 1 && digitsAfter !== 3 ? sep : '';
+  }
+  const normalized = decimal
+    ? s.replace(decimal === '.' ? /,/g : /\./g, '').replace(decimal, '.')
+    : s.replace(/[.,]/g, '');
+  const n = Number(normalized);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+function isValidRates(r) {
+  return !!r && [r.eurJpy, r.usdJpy, r.eurRsd].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
+}
+function convert(jpy, r) {
+  const eur = jpy / r.eurJpy;
+  return { eur, usd: jpy / r.usdJpy, rsd: eur * r.eurRsd };
+}
+function rsdPer100Jpy(r) { return (100 / r.eurJpy) * r.eurRsd; }
+const nf = (min, max) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: min, maximumFractionDigits: max });
+const fmtMoney = (n) => nf(2, 2).format(n);
+const fmtAmount = (n) => nf(0, 2).format(n);
+const fmtRate = (n, d) => nf(d, d).format(n);
+function fmtWhen(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return value;
+  return new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium' }).format(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+}
+/* CORE-END */
+
+const STORAGE_KEY = 'jen-konverter.v2';
+const DIGITS = { eurJpy: 3, usdJpy: 3, eurRsd: 4 };
+const $ = (id) => document.getElementById(id);
+const els = {
+  amount: $('amount'), eur: $('out-eur'), usd: $('out-usd'), rsd: $('out-rsd'), per100: $('out-100'),
+  when: $('when'), status: $('status'), reset: $('reset'),
+  rates: { eurJpy: $('r-eurjpy'), usdJpy: $('r-usdjpy'), eurRsd: $('r-eurrsd') },
+};
+const state = { manual: null };
+const fixedDate = fmtWhen(FIXED.asOf);
+
+function readStored() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function writeStored(patch) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign(readStored(), patch))); } catch (e) { /* storage unavailable: the page works without memory */ }
+}
+function currentRates() { return state.manual || FIXED.rates; }
+
+function render() {
+  const rates = currentRates();
+  const amount = parseAmount(els.amount.value);
+  const res = amount === null ? null : convert(amount, rates);
+  els.eur.textContent = res ? fmtMoney(res.eur) : '—';
+  els.usd.textContent = res ? fmtMoney(res.usd) : '—';
+  els.rsd.textContent = res ? fmtMoney(res.rsd) : '—';
+  els.per100.textContent = fmtRate(rsdPer100Jpy(rates), 4);
+  for (const key of Object.keys(els.rates)) {
+    const input = els.rates[key];
+    if (document.activeElement !== input) input.value = fmtRate(rates[key], DIGITS[key]);
+  }
+  els.when.textContent = state.manual ? 'ručno izmenjeni' : fixedDate;
+  els.status.textContent = state.manual
+    ? 'Ručno izmenjeni kursevi. Izmena se pamti u ovom pregledaču.'
+    : 'Kursevi od ' + fixedDate + ' Izmeni polje po potrebi.';
+  els.reset.hidden = !state.manual;
+}
+
+function init() {
+  const stored = readStored();
+  if (typeof stored.amount === 'string' && parseAmount(stored.amount) !== null) els.amount.value = stored.amount;
+  if (isValidRates(stored.manual)) state.manual = stored.manual;
+  render();
+
+  els.amount.addEventListener('input', () => { writeStored({ amount: els.amount.value }); render(); });
+  els.amount.addEventListener('blur', () => {
+    const n = parseAmount(els.amount.value);
+    if (n !== null) { els.amount.value = fmtAmount(n); writeStored({ amount: els.amount.value }); }
+  });
+  els.amount.addEventListener('focus', () => els.amount.select());
+  document.querySelectorAll('.chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      els.amount.value = fmtAmount(Number(chip.dataset.amount));
+      writeStored({ amount: els.amount.value });
+      render();
+    });
+  });
+  for (const key of Object.keys(els.rates)) {
+    const input = els.rates[key];
+    input.addEventListener('change', () => {
+      const n = parseAmount(input.value);
+      const next = n === null ? null : Object.assign({}, currentRates(), { [key]: n });
+      if (next && isValidRates(next)) {
+        state.manual = next;
+        writeStored({ manual: next });
+      }
+      render();
+    });
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); });
+    input.addEventListener('blur', () => render());
+  }
+  els.reset.addEventListener('click', () => { state.manual = null; writeStored({ manual: null }); render(); });
+
+  // Cursor in the amount field on open. Phones show the keyboard only after a tap,
+  // so a tap anywhere outside a control also lands in the field.
+  els.amount.focus();
+  document.addEventListener('click', (ev) => {
+    if (ev.target instanceof Element && ev.target.closest('button, input, a, label')) return;
+    els.amount.focus();
+  });
+}
+init();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+</script>
+</body>
+</html>
